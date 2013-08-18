@@ -1,0 +1,48 @@
+diff --git a/src/jsifier.js b/src/jsifier.js
+index c92526d..0e42406 100644
+--- a/src/jsifier.js
++++ b/src/jsifier.js
+@@ -607,6 +607,43 @@ function JSify(data, functionsOnly, givenFunctions) {
+       if (DLOPEN_SUPPORT) Functions.getIndex(func.ident);
+ 
+       func.JS += 'function ' + func.ident + '(' + paramIdents.join(', ') + ') {\n';
++      // JSX
++      function CType2JSXType(ctype) {
++        switch (ctype) {
++        case "i8":
++        case "u8":
++        case "i16":
++        case "u16":
++        case "i32":
++        case "u32":
++        case "i64":
++        case "u64":
++        case "float":
++        case "double":
++          return "number";
++        case "void":
++          return "void";
++        case "i8*":
++        case "u8*":
++          return "string";
++        default:
++          return "variant/*" + ctype + "*/";
++        }
++      }
++      var origName = func.ident.replace(/^_/, "");
++
++      console.warn("  static function " +  origName + " (" + func.params.map(function (arg) { return arg.ident.replace(/\W/g, "") + " : " +  CType2JSXType(arg.type); }).join(", ") + ") : " + CType2JSXType(func.returnType) + " {");
++      var jsxDelegateCCall = ("_C.ccall(" + JSON.stringify(origName) + ", "
++            + JSON.stringify(CType2JSXType(func.returnType)) + ", "
++            + JSON.stringify(func.params.map(function (arg) { return CType2JSXType(arg.type); })) + ", "
++            + '[' + (func.params.map(function (arg) { return arg.ident.replace(/\W/g, ""); })) + ']' + ")");
++      if (func.returnType != "void") {
++        console.warn("    return " + jsxDelegateCCall + " as " + CType2JSXType(func.returnType) + ";");
++      }
++      else {
++        console.warn("    " + jsxDelegateCCall + ";");
++      }
++      console.warn("  }");
+ 
+       if (PGO) {
+         func.JS += INDENTATION + 'PGOMonitor.called["' + func.ident + '"] = 1;\n';
