@@ -1,5 +1,5 @@
 diff --git a/src/jsifier.js b/src/jsifier.js
-index c92526d..0e42406 100644
+index c92526d..9a381c3 100644
 --- a/src/jsifier.js
 +++ b/src/jsifier.js
 @@ -607,6 +607,43 @@ function JSify(data, functionsOnly, givenFunctions) {
@@ -32,10 +32,10 @@ index c92526d..0e42406 100644
 +      var origName = func.ident.replace(/^_/, "");
 +
 +      console.warn("  static function " +  origName + " (" + func.params.map(function (arg) { return arg.ident.replace(/\W/g, "") + " : " +  CType2JSXType(arg.type); }).join(", ") + ") : " + CType2JSXType(func.returnType) + " {");
-+      var jsxDelegateCCall = ("_C.ccall(" + JSON.stringify(origName) + ", "
++      var jsxDelegateCCall = ("C.ccall(" + JSON.stringify(origName) + ", "
 +            + JSON.stringify(CType2JSXType(func.returnType)) + ", "
-+            + JSON.stringify(func.params.map(function (arg) { return CType2JSXType(arg.type); })) + ", "
-+            + '[' + (func.params.map(function (arg) { return arg.ident.replace(/\W/g, ""); })) + ']' + ")");
++            + JSON.stringify(func.params.map(function (arg) { return arg.type; })) + " : string[], "
++            + '[' + (func.params.map(function (arg) { return arg.ident.replace(/\W/g, ""); })) + '] : variant[]' + ")");
 +      if (func.returnType != "void") {
 +        console.warn("    return " + jsxDelegateCCall + " as " + CType2JSXType(func.returnType) + ";");
 +      }

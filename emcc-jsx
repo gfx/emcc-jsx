@@ -16,8 +16,91 @@ open my($out), ">", "$output_dir/$c_file.jsx";
 
 printf $out <<'HEAD', $class_name, $c_file, $output_dir;
 // emscripten JS API
-native class _C {
-  static function ccall(name : string, returnType : string, argsType : string[], args : variant) : variant;
+
+native class C {
+	// C calling interface. A convenient way to call C functions (in C files, or
+	// defined with extern "C").
+	//
+	// Note: LLVM optimizations can inline and remove functions, after which you will not be
+	//       able to call them. Closure can also do so. To avoid that, add your function to
+	//       the exports using something like
+	//
+	//         -s EXPORTED_FUNCTIONS='["_main", "_myfunc"]'
+	//
+	// @param ident      The name of the C function (note that C++ functions will be name-mangled - use extern "C")
+	// @param returnType The return type of the function, one of the JS types 'number', 'string' or 'array' (use 'number' for any C pointer, and
+	//                   'array' for JavaScript arrays and typed arrays; note that arrays are 8-bit).
+	// @param argTypes   An array of the types of arguments for the function (if there are no arguments, this can be ommitted). Types are as in returnType,
+	//                   except that 'array' is not possible (there is no way for us to know the length of the array)
+	// @param args       An array of the arguments to the function, as native JS values (as in returnType)
+	//                   Note that string arguments will be stored on the stack (the JS string will become a C string on the stack).
+	// @return           The return value, as a native JS value (as in returnType)
+	static function ccall(name : string, returnType : string, argsType : string[], args : variant[]) : variant;
+
+	// Returns a native JS wrapper for a C function. This is similar to ccall, but
+	// returns a function you can call repeatedly in a normal way. For example:
+	//
+	//   var my_function = cwrap('my_c_function', 'number', ['number', 'number']);
+	//   alert(my_function(5, 22));
+	//   alert(my_function(99, 12));
+	//
+	static function cwrap(ident : string, returnType : string, argTypes : string[]) : variant;
+	// Sets a value in memory in a dynamic way at run-time. Uses the
+	// type data. This is the same as makeSetValue, except that
+	// makeSetValue is done at compile-time and generates the needed
+	// code then, whereas this function picks the right code at
+	// run-time.
+	// Note that setValue and getValue only do *aligned* writes and reads!
+	// Note that ccall uses JS types as for defining types, while setValue and
+	// getValue need LLVM types ('i8', 'i32') - this is a lower-level operation
+	static function setValue(ptr : variant, value : variant, type : string) : void;
+	// Parallel to setValue.
+	function getValue(ptr : variant, type : string) : variant;
+	static __readonly__ var ALLOC_NORMAL : number; // Tries to use _malloc()
+	static __readonly__ var ALLOC_STACK : number; // Lives for the duration of the current function call
+	static __readonly__ var ALLOC_STATIC : number; // Cannot be freed
+	static __readonly__ var ALLOC_DYNAMIC : number; // Cannot be freed except through sbrk
+	static __readonly__ var ALLOC_NONE : number; // Do not allocate
+	// allocate(): This is for internal use. You can use it yourself as well, but the interface
+	//             is a little tricky (see docs right below). The reason is that it is optimized
+	//             for multiple syntaxes to save space in generated code. So you should
+	//             normally not use allocate(), and instead allocate memory using _malloc(),
+	//             initialize it with setValue(), and so forth.
+	// @slab: An array of data, or a number. If a number, then the size of the block to allocate,
+	//        in *bytes* (note that this is sometimes confusing: the next parameter does not
+	//        affect this!)
+	// @types: Either an array of types, one for each byte (or 0 if no type at that position),
+	//         or a single type which is used for the entire block. This only matters if there
+	//         is initial data - if @slab is a number, then this does not matter at all and is
+	//         ignored.
+	// @allocator: How to allocate memory, see ALLOC_*
+	static function allocate(slab : variant, types : string[], allocator : int) : variant;
+
+	static function Pointer_stringify(ptr : variant) : string;
+	static function Pointer_stringify(ptr : variant, length : int) : string;
+
+	// Heap Views
+	// They all refer to the same array buffer.
+	static __readonly__ var HEAP8 : Int8Array;
+	static __readonly__ var HEAP16 : Int16Array;
+	static __readonly__ var HEAP32 : Int32Array;
+	static __readonly__ var HEAPU8 : Uint8Array;
+	static __readonly__ var HEAPU16 : Uint16Array;
+	static __readonly__ var HEAPU32 : Uint32Array;
+	static __readonly__ var HEAPF32 : Float32Array;
+	static __readonly__ var HEAPF64 : Float64Array;
+
+	// Tools
+	// This processes a JS string into a C-line array of numbers, 0-terminated.
+	// For LLVM-originating strings, see parser.js:parseLLVMString function
+
+	static function intArrayFromString(stringy : string, dontAddNull : boolean) : number[];
+	static function intArrayFromString(stringy : string, dontAddNull : boolean, length : number) : number[];
+	static function intArrayToString(array : number[]) : string;
+
+	// Write a Javascript array to somewhere in the heap
+	static function writeStringToMemory(str : string, buffer : number, dontAddNull : boolean) : void;
+
 } = "require('./%3$s/%2$s.js')";
 
 // from C file
